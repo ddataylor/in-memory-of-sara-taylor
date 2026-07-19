@@ -825,7 +825,7 @@
     // events with an intermediate (still "scrolled down") position, which
     // would otherwise flick the button back on before the animation
     // actually finishes settling at the top.
-    var suppressBackToTopUntil = 0;
+    var suppressBackToTop = false;
 
     function update() {
       var vh = window.innerHeight || document.documentElement.clientHeight;
@@ -835,7 +835,7 @@
       heroContent.style.opacity = String(1 - progress);
       scrollDim.style.opacity = String(progress * HERO_MAX_DIM_OPACITY);
 
-      if (Date.now() >= suppressBackToTopUntil) {
+      if (!suppressBackToTop) {
         if (progress > 0.6) {
           backToTop.classList.add('visible');
         } else {
@@ -855,14 +855,43 @@
 
     update();
 
+    // Polls scrollY until it genuinely stops changing (rather than
+    // guessing how long the animation + iOS address-bar resize will take),
+    // then runs the callback once things have truly settled.
+    function waitForScrollToSettle(callback) {
+      var lastY = window.scrollY;
+      var stableTicks = 0;
+      var totalTicks = 0;
+      var maxTicks = 80; // ~4s safety cap in case something unexpected happens
+
+      var intervalId = setInterval(function () {
+        totalTicks++;
+        var currentY = window.scrollY;
+
+        if (currentY === lastY) {
+          stableTicks++;
+        } else {
+          stableTicks = 0;
+          lastY = currentY;
+        }
+
+        // Two consecutive unchanged readings (100ms) counts as settled.
+        if (stableTicks >= 2 || totalTicks >= maxTicks) {
+          clearInterval(intervalId);
+          callback();
+        }
+      }, 50);
+    }
+
     backToTop.addEventListener('click', function () {
       backToTop.classList.remove('visible');
-      suppressBackToTopUntil = Date.now() + 1200; // covers the smooth-scroll + iOS address bar animation
+      suppressBackToTop = true;
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      // Once the suppression window closes, do one final authoritative
-      // check so the button's state is correct no matter what happened
-      // (e.g. the user started scrolling again mid-animation).
-      setTimeout(update, 1250);
+
+      waitForScrollToSettle(function () {
+        suppressBackToTop = false;
+        update(); // final authoritative check once truly settled
+      });
     });
   })();
 </script>
