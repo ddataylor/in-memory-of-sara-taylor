@@ -150,9 +150,9 @@
     pointer-events: none;
   }
 
-  /* Discreet prev/next arrows - only shown while at the very top of the
-     page, for anyone browsing photos with a mouse/trackpad rather than
-     a touchscreen. */
+  /* Discreet prev/next arrows - hidden until clicked, only usable while
+     at the very top of the page, for anyone browsing photos with a
+     mouse/trackpad rather than a touchscreen. */
   .hero-nav {
     position: absolute;
     top: 50%;
@@ -818,6 +818,15 @@
     var HERO_FADE_VH_FRACTION = 1.0;  // fade/darken finishes after one full viewport height of scrolling
     var HERO_MAX_DIM_OPACITY = 0.72;  // how dark it gets at most - lower = less dark
 
+    // While true, the scroll-driven logic below leaves the back-to-top
+    // button alone rather than re-showing it. Needed because clicking the
+    // button triggers a smooth-scroll animation, and on iOS the address
+    // bar resizing during that animation can produce a burst of scroll
+    // events with an intermediate (still "scrolled down") position, which
+    // would otherwise flick the button back on before the animation
+    // actually finishes settling at the top.
+    var suppressBackToTopUntil = 0;
+
     function update() {
       var vh = window.innerHeight || document.documentElement.clientHeight;
       var fadeDistance = vh * HERO_FADE_VH_FRACTION;
@@ -826,10 +835,12 @@
       heroContent.style.opacity = String(1 - progress);
       scrollDim.style.opacity = String(progress * HERO_MAX_DIM_OPACITY);
 
-      if (progress > 0.6) {
-        backToTop.classList.add('visible');
-      } else {
-        backToTop.classList.remove('visible');
+      if (Date.now() >= suppressBackToTopUntil) {
+        if (progress > 0.6) {
+          backToTop.classList.add('visible');
+        } else {
+          backToTop.classList.remove('visible');
+        }
       }
 
       ticking = false;
@@ -845,11 +856,13 @@
     update();
 
     backToTop.addEventListener('click', function () {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      // Hide it right away rather than waiting for the scroll-driven fade -
-      // on iOS, scroll events during a smooth-scroll animation can be
-      // sparse/delayed, which sometimes left this stuck visible.
       backToTop.classList.remove('visible');
+      suppressBackToTopUntil = Date.now() + 1200; // covers the smooth-scroll + iOS address bar animation
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Once the suppression window closes, do one final authoritative
+      // check so the button's state is correct no matter what happened
+      // (e.g. the user started scrolling again mid-animation).
+      setTimeout(update, 1250);
     });
   })();
 </script>
