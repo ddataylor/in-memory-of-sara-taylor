@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sara Jane Taylor | 1945 – 2026</title>
 <meta name="description" content="In loving memory of Sara Jane Taylor, 1945 – 2026.">
+
+<!-- Social share preview (Facebook, WhatsApp, iMessage, Slack, X, etc.) -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mum.ddataylor.com/">
+<meta property="og:title" content="Sara Taylor | 1945 - 2026">
+<meta property="og:description" content="Forever loved, always remembered.">
+<meta property="og:image" content="https://mum.ddataylor.com/images/gallery-0.jpeg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sara Taylor | 1945 - 2026">
+<meta name="twitter:description" content="Forever loved, always remembered.">
+<meta name="twitter:image" content="https://mum.ddataylor.com/images/gallery-0.jpeg">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
@@ -18,6 +30,8 @@
     --line: #ded6c8;
     --white: #ffffff;
     --bar-bg: #221d19;
+    --text-on-dark: #f5f1ea;
+    --text-on-dark-soft: #cfc7ba;
   }
 
   * { box-sizing: border-box; }
@@ -48,17 +62,37 @@
     padding: 0 28px;
   }
 
-  /* Hero: full-bleed background slideshow */
+  /* Hero: fixed full-viewport background slideshow. Stays pinned behind
+     everything while the rest of the page scrolls up over it. */
   .hero {
-    position: relative;
-    min-height: 78vh;
+    position: fixed;
+    inset: 0;
+    height: 100vh;
+    z-index: 0;
     display: flex;
     align-items: flex-end;
     justify-content: center;
     text-align: center;
     overflow: hidden;
+    touch-action: pan-y; /* lets us read horizontal swipes for the gallery */
     /* graceful fallback if no photos exist yet */
     background: linear-gradient(160deg, #6b6154, #8a7c68);
+  }
+
+  /* Reserves scroll space taller than the viewport so the image has room
+     to fully darken BEFORE the page content starts sliding into view -
+     see HERO_FADE_VH_FRACTION in the script for the matching timing. */
+  .hero-spacer {
+    height: 220vh;
+  }
+
+  /* Everything after the hero. Deliberately has NO opaque background -
+     the darkened hero photo stays visible behind it as it scrolls up,
+     so all of this content's text is styled light/white to read clearly
+     against that dark backdrop. */
+  .page-content {
+    position: relative;
+    z-index: 1;
   }
 
   .hero-slide {
@@ -104,10 +138,59 @@
     pointer-events: none;
   }
 
+  /* Extra darkening layer driven by scroll position - fades the hero from
+     "vivid photo" toward "dulled backdrop" as you scroll down the page,
+     completing before the page content starts scrolling into view. */
+  .hero-scroll-dim {
+    position: absolute;
+    inset: 0;
+    background: #0d0a08;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Discreet prev/next arrows - only shown while at the very top of the
+     page, for anyone browsing photos with a mouse/trackpad rather than
+     a touchscreen. */
+  .hero-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(20,17,14,0.28);
+    color: rgba(255,255,255,0.8);
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, background 0.2s ease, color 0.2s ease;
+  }
+
+  .hero-nav.visible {
+    opacity: 0.5;
+    pointer-events: auto;
+  }
+
+  .hero-nav.visible:hover {
+    opacity: 1;
+    background: rgba(20,17,14,0.5);
+  }
+
+  .hero-nav-prev { left: 18px; }
+  .hero-nav-next { right: 18px; }
+
   .hero-content {
     position: relative;
     z-index: 2;
-    padding: 40px 28px 56px;
+    padding: 40px 28px 64px;
     color: var(--white);
   }
 
@@ -135,11 +218,40 @@
     text-shadow: 0 1px 10px rgba(0,0,0,0.4);
   }
 
+  /* Down-arrow scroll hint below the hero tagline. Fades along with the
+     rest of hero-content as you scroll, since it inherits that opacity. */
+  .scroll-hint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-top: 30px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.08);
+    color: #f5f1ea;
+    font-size: 1.1rem;
+    cursor: pointer;
+    animation: scrollHintBounce 2.4s ease-in-out infinite;
+    transition: background 0.2s ease;
+  }
+
+  .scroll-hint:hover {
+    background: rgba(255,255,255,0.2);
+  }
+
+  @keyframes scrollHintBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+  }
+
   .divider {
-    width: 48px;
+    width: 65%;
+    max-width: 480px;
     height: 1px;
     background: var(--accent);
-    margin: 48px auto;
+    margin: 28px auto;
     border: none;
   }
 
@@ -152,20 +264,24 @@
     font-size: 1.7rem;
     text-align: center;
     margin: 0 0 28px;
-    color: var(--ink);
+    color: var(--text-on-dark);
+    text-shadow: 0 1px 12px rgba(0,0,0,0.4);
   }
 
   .tribute {
     padding-top: 48px;
+    text-align: center;
   }
 
   .tribute p {
     font-size: 1.12rem;
     margin: 0 0 20px;
-    color: var(--ink);
+    color: var(--text-on-dark);
+    text-shadow: 0 1px 12px rgba(0,0,0,0.4);
   }
 
-  /* Service card */
+  /* Service card - kept as a solid light card so the details stay easy
+     to read no matter how dark the backdrop gets. */
   .card {
     background: var(--white);
     border: 1px solid var(--line);
@@ -224,9 +340,10 @@
 
   .donations-note {
     text-align: center;
-    color: var(--ink-soft);
+    color: var(--text-on-dark-soft);
     margin-bottom: 24px;
     font-size: 1.02rem;
+    text-shadow: 0 1px 12px rgba(0,0,0,0.4);
   }
 
   /* Fixed bottom memory bar - cycles between the two quotes */
@@ -258,6 +375,41 @@
   }
 
   .memory-quote.active {
+    opacity: 1;
+  }
+
+  /* Back-to-top button - appears once you've scrolled past the hero */
+  .back-to-top {
+    position: fixed;
+    right: 20px;
+    bottom: 76px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bar-bg);
+    color: #f2efe9;
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 600;
+  }
+
+  .back-to-top.visible {
+    opacity: 0.9;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .back-to-top:hover {
     opacity: 1;
   }
 
@@ -310,11 +462,10 @@
   }
 
   @media (max-width: 480px) {
-    .hero { min-height: 60vh; }
     .hero-content h1 { font-size: 2.4rem; }
-    .hero-content { padding-bottom: 40px; }
     .card { padding: 28px 22px; }
     .memory-quote { font-size: 0.92rem; padding: 0 16px; }
+    .hero-nav { width: 36px; height: 36px; font-size: 1.3rem; }
   }
 </style>
 </head>
@@ -322,44 +473,56 @@
 
   <div class="hero" id="hero">
     <div class="hero-overlay"></div>
-    <div class="hero-content">
+    <div class="hero-scroll-dim"></div>
+    <button class="hero-nav hero-nav-prev" id="heroPrev" aria-label="Previous photo">&lsaquo;</button>
+    <button class="hero-nav hero-nav-next" id="heroNext" aria-label="Next photo">&rsaquo;</button>
+    <div class="hero-content" id="heroContent">
       <h1>Sara Jane Taylor</h1>
       <div class="dates">1945 &ndash; 2026</div>
       <p class="role">Beloved Wife of Chris, much loved Mum, Grandma, Aunt and Friend.</p>
+      <div>
+        <button class="scroll-hint" id="scrollHint" aria-label="Scroll down">&darr;</button>
+      </div>
     </div>
   </div>
 
-<div class="wrap">
+  <div class="hero-spacer"></div>
 
-  <section class="tribute">
-    <p>It is with great sadness that we share the news that Sara passed away peacefully on 29 June 2026, surrounded by her family.</p>
-    <p>She will always be remembered, cherished and greatly missed by all those who knew and loved her.</p>
-  </section>
+  <main class="page-content">
+    <div class="wrap">
 
-  <hr class="divider">
+      <section class="tribute">
+        <p>It is with great sadness that we share the news that Sara passed away peacefully on 29 June 2026, surrounded by her family.</p>
+        <p>She will always be remembered, cherished and greatly missed by all those who knew and loved her.</p>
+      </section>
 
-  <section id="service">
-    <h2>Funeral Service</h2>
-    <div class="card">
-      <div class="when">Tuesday 28th July 2026 at 12:15pm</div>
-      <div class="where">St Peter&rsquo;s Church, Edgmond</div>
-      <div class="stream-note">
-        We will also be streaming the service for anyone who would like to join virtually but is unable to attend in person.<br>
-        For the link, please email <a href="mailto:jane@springvalleyconsulting.co.uk">jane@springvalleyconsulting.co.uk</a>.
-      </div>
+      <hr class="divider">
+
+      <section id="service">
+        <h2>Funeral Service</h2>
+        <div class="card">
+          <div class="when">Tuesday 28th July 2026 at 12:15pm</div>
+          <div class="where">St Peter&rsquo;s Church, Edgmond</div>
+          <div class="stream-note">
+            We will also be streaming the service for anyone who would like to join virtually but is unable to attend in person.<br>
+            For the link, please email <a href="mailto:jane@springvalleyconsulting.co.uk">jane@springvalleyconsulting.co.uk</a>.
+          </div>
+        </div>
+      </section>
+
+      <section id="donations">
+        <h2>Donations</h2>
+        <p class="donations-note">In lieu of flowers, the family has asked that any donations be made to:</p>
+        <div class="donations">
+          <a class="donate-btn" href="https://www.mariecurie.org.uk/donate" target="_blank" rel="noopener">Marie Curie</a>
+          <a class="donate-btn" href="https://www.dementiauk.org/donate-to-dementia/" target="_blank" rel="noopener">Dementia UK</a>
+        </div>
+      </section>
+
     </div>
-  </section>
+  </main>
 
-  <section id="donations">
-    <h2>Donations</h2>
-    <p class="donations-note">In lieu of flowers, the family has asked that any donations be made to:</p>
-    <div class="donations">
-      <a class="donate-btn" href="https://www.mariecurie.org.uk/donate" target="_blank" rel="noopener">Marie Curie</a>
-      <a class="donate-btn" href="https://www.dementiauk.org/donate-to-dementia/" target="_blank" rel="noopener">Dementia UK</a>
-    </div>
-  </section>
-
-</div>
+<button class="back-to-top" id="backToTop" aria-label="Scroll back to top">&uarr;</button>
 
 <div class="memory-bar" id="memoryBar">
   <div class="memory-quote active">Forever loved, always remembered.</div>
@@ -375,9 +538,10 @@
   // ============================================================
   // SLIDESHOW SETTINGS
   // ============================================================
-  // Photo files: looks for images/gallery-1.jpeg, gallery-2.jpeg, ...
+  // Photo files: looks for images/gallery-0.jpeg, gallery-1.jpeg, ...
   // up to GALLERY_MAX_PHOTOS. Add as many or as few as you like -
   // any missing number is simply skipped, nothing breaks.
+  var GALLERY_START_INDEX = 0;
   var GALLERY_MAX_PHOTOS = 50;
   var GALLERY_FILE_EXT = 'jpeg';
   var GALLERY_SLIDE_INTERVAL_MS = 6000; // time each photo stays on screen
@@ -401,11 +565,20 @@
   // the photos and under the text, so the name/dates/tagline always stay
   // crisp and readable no matter what's behind them. If no gallery photos
   // have been added yet, the hero just keeps its plain gradient background.
+  //
+  // While at the very top of the page, the photos can also be browsed
+  // manually three ways: touchscreen swipe, trackpad/Magic Mouse
+  // horizontal scroll, or the small prev/next arrows. Any manual change
+  // restarts the automatic timer so it always waits a full interval
+  // before advancing again.
   (function buildSlideshow() {
     var hero = document.getElementById('hero');
     var overlay = hero.querySelector('.hero-overlay');
+    var prevBtn = document.getElementById('heroPrev');
+    var nextBtn = document.getElementById('heroNext');
     var found = [];
     var checked = 0;
+    var totalToCheck = GALLERY_MAX_PHOTOS - GALLERY_START_INDEX + 1;
 
     // Subtle, tasteful starting points for each entrance style - kept
     // gentle (a few % of movement, not full off-screen wipes) to stay
@@ -435,6 +608,52 @@
       return type;
     }
 
+    var slides = [];
+    var current = 0;
+    var autoTimer = null;
+
+    function goToSlide(nextIndex) {
+      if (slides.length < 2) return;
+      nextIndex = ((nextIndex % slides.length) + slides.length) % slides.length;
+      if (nextIndex === current) return;
+
+      var incoming = slides[nextIndex];
+      var outgoing = slides[current];
+      var start = transitionStarts[pickTransitionType()];
+
+      // Snap the incoming slide to its starting position/blur/rotation
+      // with no animation, then force a reflow so the browser "locks
+      // in" that starting state before we animate it in.
+      incoming.style.transition = 'none';
+      incoming.style.opacity = '0';
+      incoming.style.transform = start.transform;
+      incoming.style.filter = start.filter;
+      void incoming.offsetWidth; // force reflow
+      incoming.style.transition = '';
+
+      outgoing.classList.remove('active');
+
+      incoming.classList.add('active');
+      incoming.style.opacity = '';
+      incoming.style.transform = '';
+      incoming.style.filter = '';
+
+      current = nextIndex;
+    }
+
+    // Clears and restarts the auto-advance countdown from a full interval.
+    // Called after EVERY manual change (swipe, wheel, arrows) so the next
+    // automatic transition is always a full GALLERY_SLIDE_INTERVAL_MS away,
+    // rather than firing early mid-way through whatever was left ticking.
+    function restartAutoTimer() {
+      if (autoTimer) clearInterval(autoTimer);
+      if (slides.length > 1) {
+        autoTimer = setInterval(function () {
+          goToSlide(current + 1);
+        }, GALLERY_SLIDE_INTERVAL_MS);
+      }
+    }
+
     function startSlideshow(urls) {
       if (urls.length === 0) return;
 
@@ -456,53 +675,110 @@
         hero.insertBefore(slide, overlay);
       });
 
-      if (urls.length > 1) {
-        var current = 0;
-        var slides = hero.querySelectorAll('.hero-slide');
+      slides = Array.prototype.slice.call(hero.querySelectorAll('.hero-slide'));
+      current = 0;
+      restartAutoTimer();
 
-        setInterval(function () {
-          var next = (current + 1) % slides.length;
-          var incoming = slides[next];
-          var outgoing = slides[current];
-          var start = transitionStarts[pickTransitionType()];
+      if (slides.length < 2) return; // nothing to navigate between
 
-          // Snap the incoming slide to its starting position/blur/rotation
-          // with no animation, then force a reflow so the browser "locks
-          // in" that starting state before we animate it in.
-          incoming.style.transition = 'none';
-          incoming.style.opacity = '0';
-          incoming.style.transform = start.transform;
-          incoming.style.filter = start.filter;
-          void incoming.offsetWidth; // force reflow
-          incoming.style.transition = '';
-
-          outgoing.classList.remove('active');
-
-          incoming.classList.add('active');
-          // Clear the inline overrides so the .active class's end-state
-          // values (opacity 1, no transform, no blur) take over and
-          // animate smoothly via the CSS transition on .hero-slide.
-          incoming.style.opacity = '';
-          incoming.style.transform = '';
-          incoming.style.filter = '';
-
-          current = next;
-        }, GALLERY_SLIDE_INTERVAL_MS);
+      function isAtTop() {
+        return window.scrollY <= 10;
       }
+
+      // --- Touchscreen swipe ---
+      var touchStartX = 0;
+      var touchStartY = 0;
+      var touchActive = false;
+
+      hero.addEventListener('touchstart', function (e) {
+        if (!isAtTop()) return;
+        if (!e.touches || e.touches.length !== 1) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchActive = true;
+      }, { passive: true });
+
+      hero.addEventListener('touchend', function (e) {
+        if (!touchActive) return;
+        touchActive = false;
+        if (!isAtTop()) return;
+
+        var touch = e.changedTouches && e.changedTouches[0];
+        if (!touch) return;
+
+        var deltaX = touch.clientX - touchStartX;
+        var deltaY = touch.clientY - touchStartY;
+        if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+
+        if (deltaX < 0) {
+          goToSlide(current + 1); // swiped left -> next photo
+        } else {
+          goToSlide(current - 1); // swiped right -> previous photo
+        }
+        restartAutoTimer();
+      }, { passive: true });
+
+      // --- Trackpad / Magic Mouse horizontal scroll ---
+      var wheelCooldown = false;
+
+      hero.addEventListener('wheel', function (e) {
+        if (!isAtTop()) return;
+        if (Math.abs(e.deltaX) < 12 || Math.abs(e.deltaX) < Math.abs(e.deltaY)) return;
+        if (wheelCooldown) return;
+
+        if (e.deltaX > 0) {
+          goToSlide(current + 1);
+        } else {
+          goToSlide(current - 1);
+        }
+        restartAutoTimer();
+
+        wheelCooldown = true;
+        setTimeout(function () { wheelCooldown = false; }, 650);
+      }, { passive: true });
+
+      // --- Discreet prev/next arrows (always reliable, any input device) ---
+      prevBtn.addEventListener('click', function () {
+        goToSlide(current - 1);
+        restartAutoTimer();
+      });
+      nextBtn.addEventListener('click', function () {
+        goToSlide(current + 1);
+        restartAutoTimer();
+      });
+
+      function updateNavVisibility() {
+        var visible = isAtTop();
+        prevBtn.classList.toggle('visible', visible);
+        nextBtn.classList.toggle('visible', visible);
+      }
+
+      var navTicking = false;
+      window.addEventListener('scroll', function () {
+        if (!navTicking) {
+          window.requestAnimationFrame(function () {
+            updateNavVisibility();
+            navTicking = false;
+          });
+          navTicking = true;
+        }
+      }, { passive: true });
+
+      updateNavVisibility();
     }
 
-    for (var i = 1; i <= GALLERY_MAX_PHOTOS; i++) {
+    for (var i = GALLERY_START_INDEX; i <= GALLERY_MAX_PHOTOS; i++) {
       (function (n) {
         var testImg = new Image();
         var src = 'images/gallery-' + n + '.' + GALLERY_FILE_EXT;
         testImg.onload = function () {
           found[n] = src;
           checked++;
-          if (checked === GALLERY_MAX_PHOTOS) startSlideshow(found.filter(Boolean));
+          if (checked === totalToCheck) startSlideshow(found.filter(Boolean));
         };
         testImg.onerror = function () {
           checked++;
-          if (checked === GALLERY_MAX_PHOTOS) startSlideshow(found.filter(Boolean));
+          if (checked === totalToCheck) startSlideshow(found.filter(Boolean));
         };
         testImg.src = src;
       })(i);
@@ -554,6 +830,71 @@
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') closeLightbox();
+    });
+  })();
+
+  // Down-arrow scroll hint below the hero tagline: jumps straight to the
+  // point where the hero is fully dimmed AND a full viewport of page
+  // content is showing - i.e. the same distance as .hero-spacer's height
+  // (220vh). Keep this multiplier matching that CSS value if either changes.
+  (function setupScrollHint() {
+    var btn = document.getElementById('scrollHint');
+    if (!btn) return;
+
+    var HERO_SPACER_VH_MULTIPLIER = 2.2;
+
+    btn.addEventListener('click', function () {
+      var vh = window.innerHeight || document.documentElement.clientHeight;
+      window.scrollTo({
+        top: vh * HERO_SPACER_VH_MULTIPLIER,
+        behavior: 'smooth'
+      });
+    });
+  })();
+
+  // Scroll effect: as you scroll, the hero text fades out and the photo
+  // dulls to a dark backdrop FIRST (over HERO_FADE_VH_FRACTION of one
+  // viewport height), then - because .hero-spacer is taller than the
+  // hero itself - there's a pause of plain darkness before the page
+  // content starts sliding up from below and over the dulled image.
+  // A "back to top" button appears once you've scrolled a little way in.
+  (function setupScrollEffect() {
+    var heroContent = document.getElementById('heroContent');
+    var scrollDim = document.querySelector('.hero-scroll-dim');
+    var backToTop = document.getElementById('backToTop');
+    var ticking = false;
+
+    var HERO_FADE_VH_FRACTION = 1.0;  // fade/darken finishes after one full viewport height of scrolling
+    var HERO_MAX_DIM_OPACITY = 0.72;  // how dark it gets at most - lower = less dark
+
+    function update() {
+      var vh = window.innerHeight || document.documentElement.clientHeight;
+      var fadeDistance = vh * HERO_FADE_VH_FRACTION;
+      var progress = Math.min(Math.max(window.scrollY / fadeDistance, 0), 1);
+
+      heroContent.style.opacity = String(1 - progress);
+      scrollDim.style.opacity = String(progress * HERO_MAX_DIM_OPACITY);
+
+      if (progress > 0.6) {
+        backToTop.classList.add('visible');
+      } else {
+        backToTop.classList.remove('visible');
+      }
+
+      ticking = false;
+    }
+
+    window.addEventListener('scroll', function () {
+      if (!ticking) {
+        window.requestAnimationFrame(update);
+        ticking = true;
+      }
+    }, { passive: true });
+
+    update();
+
+    backToTop.addEventListener('click', function () {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   })();
 </script>
