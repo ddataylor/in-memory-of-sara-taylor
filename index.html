@@ -818,14 +818,14 @@
     var HERO_FADE_VH_FRACTION = 1.0;  // fade/darken finishes after one full viewport height of scrolling
     var HERO_MAX_DIM_OPACITY = 0.72;  // how dark it gets at most - lower = less dark
 
-    // While true, the scroll-driven logic below leaves the back-to-top
-    // button alone rather than re-showing it. Needed because clicking the
-    // button triggers a smooth-scroll animation, and on iOS the address
-    // bar resizing during that animation can produce a burst of scroll
-    // events with an intermediate (still "scrolled down") position, which
-    // would otherwise flick the button back on before the animation
-    // actually finishes settling at the top.
-    var suppressBackToTop = false;
+    // The back-to-top button's visibility is deliberately based on a
+    // fixed pixel distance scrolled, NOT on the vh-relative "progress"
+    // used for the hero fade/dim above. window.innerHeight itself changes
+    // as iOS's address bar expands/collapses (e.g. right after tapping
+    // this very button), which was throwing off any vh-based threshold
+    // near the top and making the button flicker back on. Plain scrollY
+    // against a fixed number of pixels isn't affected by that at all.
+    var BACK_TO_TOP_SHOW_AT_PX = 400;
 
     function update() {
       var vh = window.innerHeight || document.documentElement.clientHeight;
@@ -835,12 +835,10 @@
       heroContent.style.opacity = String(1 - progress);
       scrollDim.style.opacity = String(progress * HERO_MAX_DIM_OPACITY);
 
-      if (!suppressBackToTop) {
-        if (progress > 0.6) {
-          backToTop.classList.add('visible');
-        } else {
-          backToTop.classList.remove('visible');
-        }
+      if (window.scrollY > BACK_TO_TOP_SHOW_AT_PX) {
+        backToTop.classList.add('visible');
+      } else {
+        backToTop.classList.remove('visible');
       }
 
       ticking = false;
@@ -855,43 +853,9 @@
 
     update();
 
-    // Polls scrollY until it genuinely stops changing (rather than
-    // guessing how long the animation + iOS address-bar resize will take),
-    // then runs the callback once things have truly settled.
-    function waitForScrollToSettle(callback) {
-      var lastY = window.scrollY;
-      var stableTicks = 0;
-      var totalTicks = 0;
-      var maxTicks = 80; // ~4s safety cap in case something unexpected happens
-
-      var intervalId = setInterval(function () {
-        totalTicks++;
-        var currentY = window.scrollY;
-
-        if (currentY === lastY) {
-          stableTicks++;
-        } else {
-          stableTicks = 0;
-          lastY = currentY;
-        }
-
-        // Two consecutive unchanged readings (100ms) counts as settled.
-        if (stableTicks >= 2 || totalTicks >= maxTicks) {
-          clearInterval(intervalId);
-          callback();
-        }
-      }, 50);
-    }
-
     backToTop.addEventListener('click', function () {
-      backToTop.classList.remove('visible');
-      suppressBackToTop = true;
+      backToTop.classList.remove('visible'); // hide immediately for instant feedback
       window.scrollTo({ top: 0, behavior: 'smooth' });
-
-      waitForScrollToSettle(function () {
-        suppressBackToTop = false;
-        update(); // final authoritative check once truly settled
-      });
     });
   })();
 </script>
