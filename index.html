@@ -71,8 +71,9 @@
     height: 100dvh; /* tracks the real visible area on mobile Safari as the address bar shows/hides */
     z-index: 0;
     display: flex;
-    align-items: flex-end;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
     text-align: center;
     overflow: hidden;
     touch-action: pan-y; /* lets us read horizontal swipes for the gallery */
@@ -191,7 +192,8 @@
   .hero-content {
     position: relative;
     z-index: 2;
-    padding: 40px 28px 84px;
+    flex-shrink: 0;
+    padding: 40px 28px 8px;
     color: var(--white);
   }
 
@@ -219,15 +221,20 @@
     text-shadow: 0 1px 10px rgba(0,0,0,0.4);
   }
 
-  /* Down-arrow scroll hint below the hero tagline. Fades along with the
-     rest of hero-content as you scroll, since it inherits that opacity. */
+  /* Down-arrow scroll hint - a normal flex item stacked below .hero-content
+     (so it always sits below the text, never overlapping it) but with its
+     own independent opacity, so it does NOT fade with the idle/scroll fade
+     that affects the text above it. */
   .scroll-hint {
-    display: inline-flex;
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    margin: 20px 0 76px; /* clears the 56px fixed memory-bar at the bottom, with a comfortable margin */
+    display: flex;
     align-items: center;
     justify-content: center;
     width: 40px;
     height: 40px;
-    margin-top: 30px;
     border-radius: 50%;
     border: 1px solid rgba(255,255,255,0.5);
     background: rgba(255,255,255,0.08);
@@ -433,10 +440,8 @@
       <h1>Sara Jane Taylor</h1>
       <div class="dates">1945 &ndash; 2026</div>
       <p class="role">Beloved Wife of Chris, much loved Mum, Grandma, Aunt and Friend.</p>
-      <div>
-        <button class="scroll-hint" id="scrollHint" aria-label="Scroll down">&darr;</button>
-      </div>
     </div>
+    <button class="scroll-hint" id="scrollHint" aria-label="Scroll down">&darr;</button>
   </div>
 
   <div class="hero-spacer"></div>
@@ -862,13 +867,69 @@
     window.addEventListener('touchstart', clearSuppression, { passive: true });
     window.addEventListener('wheel', clearSuppression, { passive: true });
 
+    // --- Idle fade for the hero text ---
+    // If nothing happens for a while, slowly fade the name/dates/tagline
+    // out so the photo can be seen unobstructed. Any activity (scrolling,
+    // tapping/clicking, moving the mouse) brings it straight back and
+    // resets the countdown. This is combined with the scroll-driven fade
+    // below (whichever wants the text more hidden wins) rather than the
+    // two fighting over the same opacity value.
+    var IDLE_TIMEOUT_FIRST_MS = 20000;  // how long to wait before the first fade
+    var IDLE_TIMEOUT_REPEAT_MS = 5000;  // how long to wait on later fades, same as the photo nav arrows
+    var IDLE_FADE_OUT_MS = 4000;        // how slowly it fades out
+    var IDLE_FADE_IN_MS = 500;          // how quickly it comes back on activity
+    var heroIdleOpacity = 1;
+    var hasFadedOnce = false;
+    var idleAnimFrame = null;
+    var idleTimer = null;
+    var scrollProgress = 0; // updated by the scroll handler below
+
+    function applyHeroOpacity() {
+      heroContent.style.opacity = String(Math.min(1 - scrollProgress, heroIdleOpacity));
+    }
+
+    function animateIdleOpacityTo(target, durationMs) {
+      if (idleAnimFrame) cancelAnimationFrame(idleAnimFrame);
+      var startOpacity = heroIdleOpacity;
+      var startTime = performance.now();
+
+      function step(now) {
+        var t = durationMs <= 0 ? 1 : Math.min((now - startTime) / durationMs, 1);
+        heroIdleOpacity = startOpacity + (target - startOpacity) * t;
+        applyHeroOpacity();
+        if (t < 1) {
+          idleAnimFrame = requestAnimationFrame(step);
+        } else {
+          idleAnimFrame = null;
+        }
+      }
+      idleAnimFrame = requestAnimationFrame(step);
+    }
+
+    function resetIdleTimer() {
+      if (idleTimer) clearTimeout(idleTimer);
+      animateIdleOpacityTo(1, IDLE_FADE_IN_MS);
+      var delay = hasFadedOnce ? IDLE_TIMEOUT_REPEAT_MS : IDLE_TIMEOUT_FIRST_MS;
+      idleTimer = setTimeout(function () {
+        hasFadedOnce = true;
+        animateIdleOpacityTo(0, IDLE_FADE_OUT_MS);
+      }, delay);
+    }
+
+    ['scroll', 'touchstart', 'mousemove', 'wheel', 'click'].forEach(function (evtName) {
+      window.addEventListener(evtName, resetIdleTimer, { passive: true });
+    });
+
+    resetIdleTimer();
+
+    // --- Scroll-driven hero fade/dim + back-to-top ---
     function update() {
       var vh = window.innerHeight || document.documentElement.clientHeight;
       var fadeDistance = vh * HERO_FADE_VH_FRACTION;
-      var progress = Math.min(Math.max(window.scrollY / fadeDistance, 0), 1);
+      scrollProgress = Math.min(Math.max(window.scrollY / fadeDistance, 0), 1);
 
-      heroContent.style.opacity = String(1 - progress);
-      scrollDim.style.opacity = String(progress * HERO_MAX_DIM_OPACITY);
+      applyHeroOpacity();
+      scrollDim.style.opacity = String(scrollProgress * HERO_MAX_DIM_OPACITY);
 
       if (!suppressBackToTop) {
         if (window.scrollY > BACK_TO_TOP_SHOW_AT_PX) {
