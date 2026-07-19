@@ -833,6 +833,29 @@
     // show/hide behaviour resumes as usual.
     var suppressBackToTop = false;
 
+    // iOS Safari can visually "stick" fixed-position elements on screen
+    // during the address bar's own resize animation, even once their
+    // opacity/class state is already correctly set to hidden underneath -
+    // it's a repaint/compositing quirk, not a state bug. Forcing the
+    // element fully out of the render tree with display:none (rather than
+    // just fading its opacity) sidesteps that entirely.
+    function setBackToTopHidden(hidden) {
+      if (hidden) {
+        backToTop.classList.remove('visible');
+        backToTop.style.transition = 'none';
+        backToTop.style.opacity = '0';
+        backToTop.style.display = 'none';
+      } else {
+        backToTop.style.display = '';
+        backToTop.style.transition = '';
+        backToTop.style.opacity = '';
+        // Force a reflow so the browser registers the display change
+        // before we add the class that fades it back in.
+        void backToTop.offsetWidth;
+        backToTop.classList.add('visible');
+      }
+    }
+
     function clearSuppression() {
       suppressBackToTop = false;
     }
@@ -849,9 +872,9 @@
 
       if (!suppressBackToTop) {
         if (window.scrollY > BACK_TO_TOP_SHOW_AT_PX) {
-          backToTop.classList.add('visible');
+          if (!backToTop.classList.contains('visible')) setBackToTopHidden(false);
         } else {
-          backToTop.classList.remove('visible');
+          if (backToTop.classList.contains('visible')) setBackToTopHidden(true);
         }
       }
 
@@ -868,7 +891,7 @@
     update();
 
     backToTop.addEventListener('click', function () {
-      backToTop.classList.remove('visible'); // hide immediately for instant feedback
+      setBackToTopHidden(true); // hide immediately and completely, no fade
       suppressBackToTop = true; // and keep it hidden regardless of scroll-event noise
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
