@@ -818,14 +818,26 @@
     var HERO_FADE_VH_FRACTION = 1.0;  // fade/darken finishes after one full viewport height of scrolling
     var HERO_MAX_DIM_OPACITY = 0.72;  // how dark it gets at most - lower = less dark
 
-    // The back-to-top button's visibility is deliberately based on a
-    // fixed pixel distance scrolled, NOT on the vh-relative "progress"
-    // used for the hero fade/dim above. window.innerHeight itself changes
-    // as iOS's address bar expands/collapses (e.g. right after tapping
-    // this very button), which was throwing off any vh-based threshold
-    // near the top and making the button flicker back on. Plain scrollY
-    // against a fixed number of pixels isn't affected by that at all.
+    // The back-to-top button's visibility is based on a fixed pixel
+    // distance scrolled (not the vh-relative "progress" used for the hero
+    // fade/dim above, since window.innerHeight itself shifts as iOS's
+    // address bar expands/collapses).
     var BACK_TO_TOP_SHOW_AT_PX = 400;
+
+    // While true, scroll events are not allowed to touch the back-to-top
+    // button at all. Set the moment the button is clicked, so nothing
+    // (mid-animation scroll events, iOS address-bar resize side effects,
+    // a final scroll event that never arrives, etc.) can flicker it back
+    // on. It's only cleared again once the person genuinely scrolls the
+    // page themselves (a real touch or wheel input) - at that point normal
+    // show/hide behaviour resumes as usual.
+    var suppressBackToTop = false;
+
+    function clearSuppression() {
+      suppressBackToTop = false;
+    }
+    window.addEventListener('touchstart', clearSuppression, { passive: true });
+    window.addEventListener('wheel', clearSuppression, { passive: true });
 
     function update() {
       var vh = window.innerHeight || document.documentElement.clientHeight;
@@ -835,10 +847,12 @@
       heroContent.style.opacity = String(1 - progress);
       scrollDim.style.opacity = String(progress * HERO_MAX_DIM_OPACITY);
 
-      if (window.scrollY > BACK_TO_TOP_SHOW_AT_PX) {
-        backToTop.classList.add('visible');
-      } else {
-        backToTop.classList.remove('visible');
+      if (!suppressBackToTop) {
+        if (window.scrollY > BACK_TO_TOP_SHOW_AT_PX) {
+          backToTop.classList.add('visible');
+        } else {
+          backToTop.classList.remove('visible');
+        }
       }
 
       ticking = false;
@@ -855,6 +869,7 @@
 
     backToTop.addEventListener('click', function () {
       backToTop.classList.remove('visible'); // hide immediately for instant feedback
+      suppressBackToTop = true; // and keep it hidden regardless of scroll-event noise
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   })();
