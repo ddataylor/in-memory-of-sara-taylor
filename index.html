@@ -789,25 +789,6 @@
     }, 30000);
   })();
 
-  // Down-arrow scroll hint below the hero tagline: jumps straight to the
-  // point where the hero is fully dimmed AND a full viewport of page
-  // content is showing - i.e. the same distance as .hero-spacer's height
-  // (220vh). Keep this multiplier matching that CSS value if either changes.
-  (function setupScrollHint() {
-    var btn = document.getElementById('scrollHint');
-    if (!btn) return;
-
-    var HERO_SPACER_VH_MULTIPLIER = 2.2;
-
-    btn.addEventListener('click', function () {
-      var vh = window.innerHeight || document.documentElement.clientHeight;
-      window.scrollTo({
-        top: vh * HERO_SPACER_VH_MULTIPLIER,
-        behavior: 'smooth'
-      });
-    });
-  })();
-
   // Scroll effect: as you scroll, the hero text fades out and the photo
   // dulls to a dark backdrop FIRST (over HERO_FADE_VH_FRACTION of one
   // viewport height), then - because .hero-spacer is taller than the
@@ -818,7 +799,10 @@
     var heroContent = document.getElementById('heroContent');
     var scrollDim = document.querySelector('.hero-scroll-dim');
     var backToTop = document.getElementById('backToTop');
+    var scrollHint = document.getElementById('scrollHint');
     var ticking = false;
+
+    var HERO_SPACER_VH_MULTIPLIER = 2.2; // keep matching .hero-spacer's height (220vh)
 
     var HERO_FADE_VH_FRACTION = 1.0;  // fade/darken finishes after one full viewport height of scrolling
     var HERO_MAX_DIM_OPACITY = 0.72;  // how dark it gets at most - lower = less dark
@@ -861,8 +845,41 @@
       }
     }
 
+    // The scroll-down hint should only be visible while genuinely at the
+    // top of the page, and must disappear completely the moment it's
+    // clicked or the page starts scrolling away from the top. Uses
+    // visibility:hidden rather than display:none - scroll-hint is a flex
+    // item stacked below the hero text, so display:none would remove it
+    // from that layout entirely and shift the text down to fill the gap.
+    // visibility:hidden hides it just as completely while keeping its
+    // space reserved, so nothing else moves.
+    var SCROLL_HINT_HIDE_AT_PX = 10;
+
+    function setScrollHintHidden(hidden) {
+      if (hidden) {
+        scrollHint.style.transition = 'none';
+        scrollHint.style.opacity = '0';
+        scrollHint.style.visibility = 'hidden';
+      } else {
+        scrollHint.style.visibility = '';
+        scrollHint.style.transition = '';
+        scrollHint.style.opacity = '';
+      }
+    }
+
+    // Safety net: if for any reason touchstart/wheel never fires after a
+    // back-to-top click (e.g. the very next interaction happens to be a
+    // plain click, or an odd event ordering), this guarantees suppression
+    // can never get stuck on indefinitely - it's always cleared within a
+    // couple of seconds regardless.
+    var suppressBackToTopTimer = null;
+
     function clearSuppression() {
       suppressBackToTop = false;
+      if (suppressBackToTopTimer) {
+        clearTimeout(suppressBackToTopTimer);
+        suppressBackToTopTimer = null;
+      }
     }
     window.addEventListener('touchstart', clearSuppression, { passive: true });
     window.addEventListener('wheel', clearSuppression, { passive: true });
@@ -939,6 +956,12 @@
         }
       }
 
+      if (window.scrollY > SCROLL_HINT_HIDE_AT_PX) {
+        if (scrollHint.style.visibility !== 'hidden') setScrollHintHidden(true);
+      } else {
+        if (scrollHint.style.visibility === 'hidden') setScrollHintHidden(false);
+      }
+
       ticking = false;
     }
 
@@ -954,7 +977,18 @@
     backToTop.addEventListener('click', function () {
       setBackToTopHidden(true); // hide immediately and completely, no fade
       suppressBackToTop = true; // and keep it hidden regardless of scroll-event noise
+      if (suppressBackToTopTimer) clearTimeout(suppressBackToTopTimer);
+      suppressBackToTopTimer = setTimeout(clearSuppression, 2000); // safety net, see clearSuppression above
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    scrollHint.addEventListener('click', function () {
+      setScrollHintHidden(true); // hide immediately and completely, no fade
+      var vh = window.innerHeight || document.documentElement.clientHeight;
+      window.scrollTo({
+        top: vh * HERO_SPACER_VH_MULTIPLIER,
+        behavior: 'smooth'
+      });
     });
   })();
 </script>
